@@ -38,18 +38,46 @@ class Queue extends Actor {
 
   def receive = {
     case Subscribe(subscriber) => 
+      println("Subscribing %s".format(subscriber))
       subscribers += subscriber
       context.watch(subscriber)
     case Unsubscribe(subscriber) =>
+      println("Unsubscribing %s".format(subscriber))
       subscribers -= subscriber
       context.unwatch(subscriber)
     case Terminated(ref) =>
+      println("Terminated subscriber: %s".format(ref))
       subscribers -= ref
     case e: Envelope =>
+      println("Dispatching envelope %s to subscribers".format(e))
       subscribers.foreach(_ ! e)
   }
 }
 
 object Main extends App {
-  // TODO: Write simple test
+
+  import Protocol._
+  implicit val system = ActorSystem("sys")
+
+  class Consumer extends Actor {
+    def receive = {
+      case x => println("Consumer %s received %s".format(self.path, x))
+    }
+  }
+
+  val c1 = system.actorOf(Props[Consumer])
+  val c2 = system.actorOf(Props[Consumer])
+  val q = system.actorOf(Props[Queue])
+
+  q ! Subscribe(c1)
+  q ! Envelope(1)
+  q ! Subscribe(c2)
+  q ! Envelope(2)
+  q ! Envelope(3)
+  q ! Unsubscribe(c1)
+  q ! Envelope(4)
+
+  Thread sleep 5000
+  system.shutdown()
+
 }
