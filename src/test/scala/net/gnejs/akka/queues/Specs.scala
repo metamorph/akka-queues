@@ -19,4 +19,21 @@ class ExampleSpec extends FunSpec {
     }
   }
 
+  describe("A queue") {
+    it("should automatically unsubscribe a subscriber that is terminated") {
+      implicit lazy val sys = ActorSystem("sys")
+      val queue = sys.actorOf(Props[Queue])
+      val subscriber = TestProbe()
+      queue ! Subscribe(subscriber.ref)
+      queue ! Envelope("foo")
+      subscriber.expectMsgClass(classOf[Envelope]) // To make sure the subscriber is registered.
+      // Send a terminated message to queue - we're simulating the lifecycle of the probe
+      sys.stop(subscriber.ref)
+      queue ! Envelope("bar")
+      subscriber.expectNoMsg()
+
+      sys.shutdown()
+    }
+  }
+
 }
